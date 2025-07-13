@@ -131,11 +131,14 @@ async function createOrder(
 //store subscription info 
 async function saveSubscriptionToDB(subscription: Stripe.Subscription){
   try {
+    //create sub 
     await Subscription.create({
+      userId: subscription.metadata?.userId,
       stripeCustomerId: subscription.customer,    
       subscriptionId: subscription.id,
       status: subscription.status,
       plan: subscription.metadata?.plan || "unknown",
+      trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : undefined
     });
 
     console.log("Subscription saved to DB");

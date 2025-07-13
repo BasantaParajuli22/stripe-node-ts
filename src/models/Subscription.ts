@@ -8,6 +8,7 @@ export interface ISubscription extends mongoose.Document {
   subscriptionId: string;
   status: "active" | "trialing" | "canceled";  // "active", "trialing", "canceled"
   plan: "basic" | "pro";                       // "pro", "basic"
+  trialEndsAt?: Date;     //when does users free trial ends
   createdAt: Date;
   updatedAt: Date;
 }
@@ -19,7 +20,9 @@ const SubscriptionSchema = new mongoose.Schema<ISubscription>(
     subscriptionId: { type: String, required: true, unique: true },
     status: { type: String, enum:["active", "trialing", "canceled"], required: true },
     plan: { type: String, enum: ["basic", "pro"], default: "basic" },
+    trialEndsAt: { type: Date, required: true},
   },
+
   { timestamps: true }
 );
 

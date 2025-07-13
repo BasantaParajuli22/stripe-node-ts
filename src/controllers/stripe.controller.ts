@@ -3,6 +3,7 @@ import stripe from "../utils/stripe";
 import * as bookService from "../service/book.service";
 import User from "../models/User";
 import MeteredSubscription from "../models/MeteredSubscription";
+import Subscription from "../models/Subscription";
 
 //for one time checkOut or payment
 export async function createCheckoutSession(req: Request, res: Response): Promise<void>{
@@ -63,8 +64,7 @@ export async function createCheckoutSession(req: Request, res: Response): Promis
 }
 
 
-//create subscription
-//get email info 
+// 7 days free and then pay monthly to use
 export async function createSubscription(req: Request, res: Response): Promise<void>{
     const {userId} = req.body;
     //verify if email exists in db or not 
@@ -79,7 +79,7 @@ export async function createSubscription(req: Request, res: Response): Promise<v
             mode: "subscription",
             line_items: [
                 {
-                    price: "price_1RjazyDm76dRJMzfwAujsFn5", //product price from stripe dashboard
+                    price: "price_1RjazyDm76dRJMzfwAujsFn5", //pro sub price from stripe dashboard
                     quantity: 1, //subscription will be
                 },
             ],
@@ -88,8 +88,8 @@ export async function createSubscription(req: Request, res: Response): Promise<v
             success_url: `${process.env.FRONTEND_URL}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `${process.env.FRONTEND_URL}/cancel`, //route for both payment cancel 
             subscription_data: {
-                trial_period_days: 7,
-                metadata: { plan: "pro"},
+                trial_period_days: 7, //trial limit
+                metadata: { plan: "pro", userId: user._id.toString(), }, 
             },
         });
         res.status(200).json({
@@ -107,6 +107,52 @@ export async function createSubscription(req: Request, res: Response): Promise<v
     }
 }
 
+//another concept
+//this concept contradicts above one //use properly
+//both uses same Subscription model
+//free for all 
+//but pay for some features monthly
+//same as 7days free trial and pay  but trial has no limit
+export async function unlockPremiumFeatures(req: Request, res: Response): Promise<void>{
+    const {userId} = req.body;
+    //verify if email exists in db or not 
+    const user = await User.findOne({_id: userId});
+    if (!user) {
+        res.status(404).json({ success: false, message: "user not found" });
+        return;
+    }
+   
+    try {
+        const createSession = await stripe.checkout.sessions.create({
+            mode: "subscription",
+            line_items: [
+                {
+                    price: "price_1RjazyDm76dRJMzfwAujsFn5", //pro sub price from stripe dashboard
+                    quantity: 1, //subscription will be
+                },
+            ],
+            payment_method_types: ['card'],
+            automatic_tax: {enabled: false},
+            success_url: `${process.env.FRONTEND_URL}/dashboard?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${process.env.FRONTEND_URL}/cancel`, //route for both payment cancel 
+            subscription_data: { //no trial limit
+                metadata: { plan: "pro", userId: user._id.toString(), }, 
+            },
+        });
+        res.status(200).json({
+            success: true,
+            message: "checkout has been success",
+            url: createSession.url,
+        });
+    } catch (error: any) {
+        console.error("Stripe error:", error.message);
+        res.status(500).json({
+            success: false,
+            message: "subscription creation failed",
+            error: error.message,
+        });
+    }
+}
 
 // price_1RjssuDm76dRJMzfqeXg6Crm
 //for metered based subscription
