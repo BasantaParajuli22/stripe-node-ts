@@ -1,10 +1,11 @@
 import express from "express";
-import { createBook, getAllBooks, getBookById } from "../controllers/book.controller";
+import * as bookController from "../controllers/book.controller";
 
 const router = express.Router();
 
-router.post("/", createBook);
-router.get("/", getAllBooks);
-router.get("/:id", getBookById);
+router.post("/", bookController.createBook);
+router.get("/", bookController.getAllBooks);
+router.get("/:id", bookController.getBookById);
+router.get("/content/:id", bookController.getBookContentByBookId); // for premium access check
 
 export default router;

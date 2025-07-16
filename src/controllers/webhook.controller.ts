@@ -34,16 +34,18 @@ export async function handleStripeWebhook(req: Request, res: Response): Promise<
       // You can access metadata here if passed during session creation
       //  Store session ID, email, or reduce book quantity here
       // (Use session.client_reference_id or metadata.bookId if passed)
-      const bookId = session.metadata?.bookId as string;
+      let bookId = session.metadata?.bookId as string;
+      const userId = session.metadata?.userId as string;
       console.log(" Payment successful session id :", session.id);
       console.log(" Payment successful meta data bookId:", bookId);
 
-      const session_id = session.id;
-      const customerEmail = session.customer_email || "not provided"; 
-      const total = session.amount_total || 0;
-      const payment_status =  "paid";
-      await createOrder(bookId, session_id, customerEmail, total, payment_status );
+      if(bookId && userId){ //this is for one time purchased where we buy book by user
+        await createOrder(userId, bookId, session);
+      }//when creating metered sub //no book here //user buys but not book 
+      await createOrder(userId, bookId = "metered", session);
+
       break;
+
 
     //for monthly subscription
     case "customer.subscription.created":
@@ -53,13 +55,14 @@ export async function handleStripeWebhook(req: Request, res: Response): Promise<
       console.log("Customer:", subscription.customer);
 
       if (subscription.metadata?.plan === "metered") {
-        //this is monthly sub but metered charge
-        await saveMeteredSubscriptionToDB(subscription);
+        // await saveMeteredSubscriptionToDB(subscription); already created in controller only update now
+        await updateMeteredSubscriptionToDB(subscription.id, subscription.status);
       }else{
         //this is also monthly sub but fixed charge
         await saveSubscriptionToDB(subscription);
       }
       break;
+
 
     case "invoice.paid":
       const paidInvoice = event.data.object as Stripe.Invoice;
@@ -111,17 +114,22 @@ export async function handleStripeWebhook(req: Request, res: Response): Promise<
 
 
 //to create order after purchased and payment is made
-async function createOrder(
-    bookId: string, session_id: string, customerEmail: string, total: number, payment_status: string 
-  ){
-    const existing = await Order.findOne({ session_id });
+async function createOrder(userId: string, bookId: string, session: Stripe.Checkout.Session  ){
+    const existing = await Order.findOne({ session_id: session.id });
     if (existing) {
       console.log("Duplicate session, skipping order save.");
       return;
     }
-
    try {
-    await Order.create({ bookId, session_id, customerEmail, total, payment_status });
+    await Order.create({
+        userId: userId,
+        bookId: bookId,
+        stripeSessionId: session.id,
+        paymentIntentId: session.payment_intent,
+        customerEmail: session.customer_email || "not provided",
+        amountTotal: session.amount_total || 0,
+        paid: session.payment_status === 'paid' ? true : false,
+      });
     console.log("Order saved to DB");
   } catch (err: any) {
     console.error("Failed to save order:", err.message);
@@ -137,7 +145,7 @@ async function saveSubscriptionToDB(subscription: Stripe.Subscription){
       stripeCustomerId: subscription.customer,    
       subscriptionId: subscription.id,
       status: subscription.status,
-      plan: subscription.metadata?.plan || "unknown",
+      plan: subscription.metadata?.plan || "basic",
       trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000) : undefined
     });
 
@@ -164,26 +172,26 @@ async function updateSubscriptionToDB(subscriptionId: string, status: string) {
 
 //for metered sub
 //store subscription info 
-async function saveMeteredSubscriptionToDB(subscription: Stripe.Subscription){
-  try {
+// async function saveMeteredSubscriptionToDB(subscription: Stripe.Subscription){
+//   try {
 
-    // Extract the subscription item ID from the first item
-    await MeteredSubscription.create({
-      userId: subscription.metadata?.userId,
-      stripeCustomerId: subscription.customer,    
-      subscriptionId: subscription.id,
-      subscriptionItemId: subscription.items.data[0].id,
-      status: subscription.status,
-      plan: subscription.metadata?.plan || "metered",
-      usageUnit: "chapter",
-      currentUsage: 0, //first initialize
-    });
+//     // Extract the subscription item ID from the first item
+//     await MeteredSubscription.create({
+//       userId: subscription.metadata?.userId,
+//       stripeCustomerId: subscription.customer,    
+//       subscriptionId: subscription.id,
+//       subscriptionItemId: subscription.items.data[0].id,
+//       status: subscription.status,
+//       plan: subscription.metadata?.plan || "metered",
+//       usageUnit: "chapter",
+//       currentUsage: 0, //first initialize
+//     });
 
-    console.log("Subscription saved to DB");
-  } catch (err: any) {
-    console.error("Failed to save subscription:", err.message);
-  }
-}
+//     console.log("Subscription saved to DB");
+//   } catch (err: any) {
+//     console.error("Failed to save subscription:", err.message);
+//   }
+// }
 
 // Also add update function for metered subscriptions
 async function updateMeteredSubscriptionToDB(subscriptionId: string, status: string) {

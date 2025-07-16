@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import Book from "../models/Book";
-import stripe, { createUsageRecord } from "../utils/stripe";
+import stripe, { recordUsage } from "../utils/stripe";
 import User from "../models/User";
 import MeteredSubscription from "../models/MeteredSubscription";
 import Subscription from "../models/Subscription";
@@ -57,8 +57,10 @@ export async function getBookById (req: Request, res: Response): Promise<void>{
       return;
     }
 
-    try {//for recording pf usage 
-      const usageRecord = await createUsageRecord(sub.stripeCustomerId);
+    try { 
+      // //not recording properly for now??
+      //for recording of usage 
+      const usageRecord = await recordUsage(sub.stripeCustomerId,);
       // console.log("Usage recorded:", usageRecord.id);
     } catch (error: any) {
       console.error("Failed to record usage:", error.message);
@@ -72,6 +74,7 @@ export async function getBookById (req: Request, res: Response): Promise<void>{
 };
 
 
+//forusers who has unlock premium
 //get content based on premium or not
 //if user has pro plan and active status //show premium content
 //else free content
@@ -101,6 +104,7 @@ export async function getBookContentByBookId(req: Request, res: Response): Promi
     // const fullContent = book
 
     res.status(200).json({
+      display: "for pro user full content",
       success: true,
       title: book.title,
       content: book.content //provide full content
@@ -113,6 +117,7 @@ export async function getBookContentByBookId(req: Request, res: Response): Promi
     //eg
     const previewContent = book.content.substring(0,100);//not full content
     res.status(200).json({
+      display: "for basic user preview content",
       success: true,
       title: book.title,
       book: previewContent,

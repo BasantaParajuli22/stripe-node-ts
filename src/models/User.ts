@@ -5,6 +5,7 @@ export interface IUser extends mongoose.Document{
     username?: string,
     email: string,
     password: string,
+    role: "admin" | "user";
     createdAt?:Date,
     updatedAt?:Date,
 }
@@ -13,7 +14,7 @@ const UserSchema = new mongoose.Schema<IUser>({
     username:{
         type: String,
         trim: true,
-        default: "reader name",
+        default: "default name",
     },
     email:{
         type: String,
@@ -23,6 +24,11 @@ const UserSchema = new mongoose.Schema<IUser>({
     password:{
         type: String,
         required : true,
+    },
+    role:{
+        type: String,
+        enum: ["admin", "user"],
+        default: "user",
     },
 
 }, { timestamps: true });

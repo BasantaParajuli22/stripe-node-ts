@@ -1,0 +1,7 @@
+to listen to webhook sent from stripe 
+
+first download stripe from stripe docs 
+
+stripe login 
+
+stripe listen --forward-to localhost:5000/api/webhook

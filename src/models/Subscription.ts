@@ -20,7 +20,7 @@ const SubscriptionSchema = new mongoose.Schema<ISubscription>(
     subscriptionId: { type: String, required: true, unique: true },
     status: { type: String, enum:["active", "trialing", "canceled"], required: true },
     plan: { type: String, enum: ["basic", "pro"], default: "basic" },
-    trialEndsAt: { type: Date, required: true},
+    trialEndsAt: { type: Date, required: false}, //not required for now bcz user upgrade or unlock to pro instant 
   },
 
   { timestamps: true }
